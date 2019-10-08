@@ -8,7 +8,7 @@ import psycopg2
 import http.server
 import socketserver
 from plotly.subplots import make_subplots
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 def consulta(sql):
     try:
         connection = psycopg2.connect(user = "tad",
@@ -18,7 +18,7 @@ def consulta(sql):
                                     database = "bi_infoteca")
         cursor = connection.cursor()
         # Print PostgreSQL Connection properties
-        print ( connection.get_dsn_parameters(),"\n")
+        # print ( connection.get_dsn_parameters(),"\n")
         # Print PostgreSQL version
         cursor.execute(sql)
         record = cursor.fetchall()
@@ -29,7 +29,7 @@ def consulta(sql):
         if(connection):
             cursor.close()
             connection.close()
-            print("PostgreSQL connection is closed")
+            #print("PostgreSQL connection is closed")
         return record
 
 # Quantidade de livros emprestado por mês
@@ -97,6 +97,13 @@ for w in resultadoAreaTurma:
             a['y'].append(int(w[2]))
     if l:
         resultadoAreas.append({'x':[w[1]], 'y': [int(w[2])], 'type':'bar', 'name':str(w[0]), 'sigla': str(w[3])})
+OptionsAreas=[]
+resultadoAreasOptions = consulta('''
+    select sk_dim_areaturma, nomearea, siglaarea
+    from dw.dim_areaturma
+''')
+for oa in resultadoAreasOptions:
+    OptionsAreas.append({'label': oa[1], 'value': oa[2]})
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -110,8 +117,9 @@ app.layout = html.Div(children=[
             ],
             value='2019',
             style={
-                'display': 'none'
-            }
+                #'display': 'none'
+            },
+            clearable=False,
         ),
         dcc.Dropdown(
             id="dropdown-mes",
@@ -129,11 +137,20 @@ app.layout = html.Div(children=[
                 {'label': 'Novembro', 'value': 'Novembro'},
                 {'label': 'Dezembro', 'value':'Dezembro'},
             ],
-            value='Janeiro',
             style={
-                'display': 'none'
-            }
+                #'display': 'none'
+            },
+            placeholder="Selecione um mês"
         ),
+        dcc.Dropdown(
+            id="dropdown-area",
+            options=OptionsAreas,
+            style={
+                #'display': 'none',
+            },
+            placeholder="Selecione uma área"
+        ),
+        html.Div([], id='dropdown-mes-background', style={'display': 'none'})
     ]),
     dbc.Row([
         dbc.Col([
@@ -176,17 +193,34 @@ app.layout = html.Div(children=[
     ])
     ,
 ])
-          
-@app.callback(
-    [Output("col-graph-qtd-mes-por-area", "children"),
-     Output("dropdown-mes", "value")
-    ],
-    [Input("graph-qtd-mes", "clickData")]
+
+@app.callback([Output("dropdown-mes", "value"), Output("dropdown-mes-background", "children")],[
+    Input("graph-qtd-mes", "clickData"),
+    Input("graph-qtd-mes-por-area", "clickData"),
+    Input("dropdown-mes", "options")],
+    [State("dropdown-mes-background", "children")]    
 )
-def criarGraphQtdMesPorArea(click):
+def alterarDropdownMes(clickMes, clickMesArea, mesOptions, mesBG):
+    if clickMes != None:
+        clickX = clickMes["points"][0]["x"].encode('utf-8', 'replace')
+        return clickX, clickX
+    elif clickMesArea != None:
+        clickX = clickMesArea["points"][0]["x"].encode('utf-8', 'replace')
+        for mes in mesOptions:
+            if(mes["label"].encode("utf-8", "replace") == clickX):
+                return clickX, clickX
+        return mesBG, mesBG
+    else:
+        return [None, None]
+
+@app.callback(
+    Output("col-graph-qtd-mes-por-area", "children"),
+    [Input("dropdown-mes", "value")]
+)
+def criarGraphQtdMesPorArea(dropdown):
     grafico = []
-    if click != None:
-        clickX = click["points"][0]["x"].encode('utf-8', 'replace')
+    if dropdown != None:
+        clickX = dropdown.encode("utf-8", "replace")
         for i in resultadoAreas:
             ind = 0
             for val in i["x"]:
@@ -207,7 +241,7 @@ def criarGraphQtdMesPorArea(click):
                     }
                 }
             ),
-        ], clickX
+        ]
     else:
         return [
             dcc.Graph(
@@ -215,25 +249,47 @@ def criarGraphQtdMesPorArea(click):
                 figure={
                     'data': resultadoAreas,
                     'layout': {
-                        'title': 'Quantidade de empréstimo por mês e área',
+                        'title': 'Quantidade de empréstimo por área no ano de 2019',
                     }
                 },
             ),
-        ], "Janeiro"
+        ]
+
+@app.callback(
+    Output("dropdown-area","value"),[
+    Input("graph-qtd-mes-por-area", "clickData"),
+    Input("dropdown-mes", "options")
+    ]
+)
+def alterarDropdownArea(click, mesOptions):
+    if(click != None):
+        clickX = click["points"][0]["x"].encode('utf-8', 'replace')
+        for mes in mesOptions:
+            if(mes["label"].encode("utf-8", "replace") == clickX):
+                return
+        return clickX
+    else:
+        return
 
 @app.callback(
     Output("col-graph-qtd-livro", "children"),[
-    Input("graph-qtd-mes-por-area", "clickData"),
-    Input("dropdown-mes", "value")
+    Input("dropdown-mes", "value"),
+    Input("dropdown-area", "value"),
+    Input("dropdown-area", "options")
     ]
 )
-def criarGraphQtdMesPorLivro(click, mes):
-    mes = mes.encode("utf-8", "replace")
-    if(click != None):
-        if(len(click["points"]) > 1):
-            clickX = click["points"][0]["x"].encode("utf-8", "replace")
-            mes = clickX
-            resultadoConsultaLivro = consultarLivros(clickX,"")
+def criarGraphQtdMesPorLivro(mes, area, areaOptions):
+    if(mes != None):
+        mes = mes.encode("utf-8", "replace")
+    if(area != None):
+        area = area.encode("utf-8", "replace")
+        areaLabel = ""
+        for a in areaOptions:
+            if(a["value"] == area):
+                areaLabel = a["label"]
+        areaLabel = areaLabel.encode("utf-8", "replace")
+        if(mes == None):
+            resultadoConsultaLivro = consultarLivros("",area)
             resultadoLivroLabels = resultadoConsultaLivro[0]
             resultadoLivroValues = resultadoConsultaLivro[1]
             return [dcc.Graph(
@@ -241,14 +297,13 @@ def criarGraphQtdMesPorLivro(click, mes):
                     figure={
                         'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
                         'layout':{
-                            'title': 'Quantidade de empréstimo por livro no ano de 2019 no mês de '+ mes 
+                            'title': 'Quantidade de empréstimo por livro no ano de 2019 pela área de '+areaLabel
                         }
                     }
                 )
             ]
         else:
-            clickX = click["points"][0]["x"].encode("utf-8", "replace")
-            resultadoConsultaLivro = consultarLivros(mes,clickX)
+            resultadoConsultaLivro = consultarLivros(mes,area)
             resultadoLivroLabels = resultadoConsultaLivro[0]
             resultadoLivroValues = resultadoConsultaLivro[1]
             return [dcc.Graph(
@@ -256,24 +311,39 @@ def criarGraphQtdMesPorLivro(click, mes):
                     figure={
                         'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
                         'layout':{
-                            'title': 'Quantidade de empréstimo por livro no ano de 2019 no mês de '+ mes +' pela área '+ clickX
+                            'title': 'Quantidade de empréstimo por livro no ano de 2019 no mês de '+ mes +' pela área '+ areaLabel
                         }
                     }
                 )
             ]
     else:
-        resultadoConsultaLivro = consultarLivros(mes,"")
-        resultadoLivroLabels = resultadoConsultaLivro[0]
-        resultadoLivroValues = resultadoConsultaLivro[1]
-        return [dcc.Graph(
-                id='graph-qtd-livro',
-                figure={
-                    'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
-                    'layout':{
-                        'title': 'Quantidade de empréstimo por livro no ano de 2019 no mês de '+ mes
+        if(mes != None):
+            resultadoConsultaLivro = consultarLivros(mes,"")
+            resultadoLivroLabels = resultadoConsultaLivro[0]
+            resultadoLivroValues = resultadoConsultaLivro[1]
+            return [dcc.Graph(
+                    id='graph-qtd-livro',
+                    figure={
+                        'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
+                        'layout':{
+                            'title': 'Quantidade de empréstimo por livro no ano de 2019 no mês de '+mes
+                        }
                     }
-                }
-            )
-        ]
+                )
+            ]
+        else:
+            resultadoConsultaLivro = consultarLivros("","")
+            resultadoLivroLabels = resultadoConsultaLivro[0]
+            resultadoLivroValues = resultadoConsultaLivro[1]
+            return [dcc.Graph(
+                    id='graph-qtd-livro',
+                    figure={
+                        'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
+                        'layout':{
+                            'title': 'Quantidade de empréstimo por livro no ano de 2019'
+                        }
+                    }
+                )
+            ]
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=8080)
