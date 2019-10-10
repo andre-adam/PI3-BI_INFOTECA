@@ -9,6 +9,8 @@ import http.server
 import socketserver
 from plotly.subplots import make_subplots
 from dash.dependencies import Input, Output, State
+FONT_AWESOME = "https://use.fontawesome.com/releases/v5.7.2/css/all.css"
+
 def consulta(sql):
     try:
         connection = psycopg2.connect(user = "tad",
@@ -104,54 +106,136 @@ resultadoAreasOptions = consulta('''
 ''')
 for oa in resultadoAreasOptions:
     OptionsAreas.append({'label': oa[1], 'value': oa[2]})
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, FONT_AWESOME])
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+modalFiltro = html.Div(
+    [   html.Span(
+            [html.I(className="fa fa-filter")], 
+            id="popover-target",
+            style={
+                'position': 'fixed',
+                'top': '50',
+                'marginLeft': '10px',
+                'zIndex': '1',
+                'fontSize': '30px',
+                'cursor':'pointer',
+            }
+        ),
+        dbc.Popover(
+            [
+                dbc.PopoverHeader("Filtros",
+                    style={
+                        "textAlign": "center",
+                    }
+                ),
+                dbc.PopoverBody(
+                    [   
+                    dbc.FormGroup(
+                    [
+                        dbc.Label("Ano", html_for="dropdown-ano", width=3),
+                        dbc.Col(
+                            dcc.Dropdown(
+                                id="dropdown-ano",
+                                options=[
+                                    {'label': '2019', 'value': '2019'}
+                                ],
+                                value='2019',
+                                clearable=False,
+                            ),
+                            width=9
+                        ),
+                        dbc.Label("Mês", html_for="dropdown-mes", width=3),
+                    dbc.Col(
+                        dcc.Dropdown(
+                            id="dropdown-mes",
+                            options=[
+                                {'label': 'Janeiro', 'value': 'Janeiro'},
+                                {'label': 'Fevereiro', 'value': 'Fevereiro'},
+                                {'label': 'Março', 'value':'Março'},
+                                {'label': 'Abril', 'value': 'Abril'},
+                                {'label': 'Maio', 'value': 'Maio'},
+                                {'label': 'Junho', 'value':'Junho'},
+                                {'label': 'Julho', 'value': 'Julho'},
+                                {'label': 'Agosto', 'value': 'Agosto'},
+                                {'label': 'Setembro', 'value':'Setembro'},
+                                {'label': 'Outubro', 'value': 'Outubro'},
+                                {'label': 'Novembro', 'value': 'Novembro'},
+                                {'label': 'Dezembro', 'value':'Dezembro'},
+                            ],
+                            placeholder="Selecione um mês"
+                        ),
+                        width=9
+                        ),
+                    dbc.Label("Área", html_for="dropdown-area", width=3),
+                    dbc.Col(
+                        dcc.Dropdown(
+                            id="dropdown-area",
+                            options=OptionsAreas,
+                            placeholder="Selecione uma área"
+                        ),  
+                    width=9),
+
+                    ], row=True),
+                    html.Div([], id='dropdown-mes-background', style={'display': 'none'})
+                ]
+                )
+                ],
+                id="popover-filtro",
+                is_open=False,
+                target="popover-target",
+                style={
+                    "minWidth": "20em",
+                }
+        ),
+        
+    ]
+)
+
+PLOTLY_LOGO = "/assets/icone.png"
+
+search_bar = dbc.Row(
+    [
+        dbc.Col(dbc.Input(type="search", placeholder="Procurar")),
+        dbc.Col(
+            dbc.Button("Procurar", color="primary", className="ml-2"),
+            width="auto",
+        ),
+    ],
+    no_gutters=True,
+    className="ml-auto flex-nowrap mt-3 mt-md-0",
+    align="center",
+)
+
+navbar = dbc.Navbar(
+    [
+        html.A(
+            # Use row and col to control vertical alignment of logo / brand
+            dbc.Row(
+                [
+                    dbc.Col(html.Img(src=PLOTLY_LOGO, height="30px")),
+                    dbc.Col(dbc.NavbarBrand("BI InfoTeca", className="ml-2")),
+                ],
+                align="center",
+                no_gutters=True,
+            ),
+            href="https://plot.ly",
+        ),
+        dbc.NavbarToggler(id="navbar-toggler"),
+        dbc.Collapse(search_bar, id="navbar-collapse", navbar=True),
+    ],
+    color="dark",
+    dark=True,
+)
+
+
+
+app.title = "BI InfoTeca" 
 
 app.layout = html.Div(children=[
-    html.H1(style={'text-align':'center'},children='BI InfoTeca'),
-    html.Div([
-        dcc.Dropdown(
-            id="dropdown-ano",
-            options=[
-                {'label': '2019', 'value': '2019'}
-            ],
-            value='2019',
-            style={
-                #'display': 'none'
-            },
-            clearable=False,
-        ),
-        dcc.Dropdown(
-            id="dropdown-mes",
-            options=[
-                {'label': 'Janeiro', 'value': 'Janeiro'},
-                {'label': 'Fevereiro', 'value': 'Fevereiro'},
-                {'label': 'Março', 'value':'Março'},
-                {'label': 'Abril', 'value': 'Abril'},
-                {'label': 'Maio', 'value': 'Maio'},
-                {'label': 'Junho', 'value':'Junho'},
-                {'label': 'Julho', 'value': 'Julho'},
-                {'label': 'Agosto', 'value': 'Agosto'},
-                {'label': 'Setembro', 'value':'Setembro'},
-                {'label': 'Outubro', 'value': 'Outubro'},
-                {'label': 'Novembro', 'value': 'Novembro'},
-                {'label': 'Dezembro', 'value':'Dezembro'},
-            ],
-            style={
-                #'display': 'none'
-            },
-            placeholder="Selecione um mês"
-        ),
-        dcc.Dropdown(
-            id="dropdown-area",
-            options=OptionsAreas,
-            style={
-                #'display': 'none',
-            },
-            placeholder="Selecione uma área"
-        ),
-        html.Div([], id='dropdown-mes-background', style={'display': 'none'})
-    ]),
+    # html.H1(style={'text-align':'center'},children='BI InfoTeca'),
+    navbar,
+    modalFiltro,
+    html.Div(children=[
     dbc.Row([
         dbc.Col([
             dcc.Graph(
@@ -185,14 +269,44 @@ app.layout = html.Div(children=[
                 figure={
                     'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
                     'layout':{
-                        'title': 'Quantidade de empréstimo por livro no ano de 2019'
+                        'title': 'Quantidade de empréstimo por livro no ano de 2019',
+                        'legend':{
+                            'xanchor':"center",
+                            'yanchor':"top",
+                            'orientation': 'h',
+                            #'y':'-0.5', # play with it
+                            #'x':'100'   # play with it
+                        }
                     }
-                }
+                },
             )
         ], md=12, id="col-graph-qtd-livro")
     ])
+    ])
     ,
 ])
+
+# add callback for toggling the collapse on small screens
+@app.callback(
+    Output("navbar-collapse", "is_open"),
+    [Input("navbar-toggler", "n_clicks")],
+    [State("navbar-collapse", "is_open")],
+)
+def toggle_navbar_collapse(n, is_open):
+    if n:
+        return not is_open
+    return is_open
+
+
+@app.callback(
+    Output("popover-filtro", "is_open"),
+    [Input("popover-target", "n_clicks")],
+    [State("popover-filtro", "is_open")],
+)
+def toggle_popover(n1, is_open):
+    if n1:
+        return not is_open
+    return is_open
 
 @app.callback([Output("dropdown-mes", "value"), Output("dropdown-mes-background", "children")],[
     Input("graph-qtd-mes", "clickData"),
@@ -297,7 +411,14 @@ def criarGraphQtdMesPorLivro(mes, area, areaOptions):
                     figure={
                         'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
                         'layout':{
-                            'title': 'Quantidade de empréstimo por livro no ano de 2019 pela área de '+areaLabel
+                            'title': 'Quantidade de empréstimo por livro no ano de 2019 pela área de '+areaLabel,
+                            'legend':{
+                                'xanchor':"center",
+                                'yanchor':"top",
+                                'orientation': 'h',
+                                # 'y': -0.5, # play with it
+                                # 'x': 100   # play with it
+                            }
                         }
                     }
                 )
@@ -311,7 +432,14 @@ def criarGraphQtdMesPorLivro(mes, area, areaOptions):
                     figure={
                         'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
                         'layout':{
-                            'title': 'Quantidade de empréstimo por livro no ano de 2019 no mês de '+ mes +' pela área '+ areaLabel
+                            'title': 'Quantidade de empréstimo por livro no ano de 2019 no mês de '+ mes +' pela área '+ areaLabel,
+                            'legend':{
+                                'xanchor':"center",
+                                'yanchor':"top",
+                                'orientation': 'h',
+                                # 'y': -0.5, # play with it
+                                # 'x': 100   # play with it
+                            }
                         }
                     }
                 )
@@ -326,7 +454,14 @@ def criarGraphQtdMesPorLivro(mes, area, areaOptions):
                     figure={
                         'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
                         'layout':{
-                            'title': 'Quantidade de empréstimo por livro no ano de 2019 no mês de '+mes
+                            'title': 'Quantidade de empréstimo por livro no ano de 2019 no mês de '+mes,
+                            'legend':{
+                                'xanchor':"center",
+                                'yanchor':"top",
+                                'orientation': 'h',
+                                # 'y': -0.5, # play with it
+                                # 'x': 100   # play with it
+                            }
                         }
                     }
                 )
@@ -340,7 +475,14 @@ def criarGraphQtdMesPorLivro(mes, area, areaOptions):
                     figure={
                         'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
                         'layout':{
-                            'title': 'Quantidade de empréstimo por livro no ano de 2019'
+                            'title': 'Quantidade de empréstimo por livro no ano de 2019',
+                            'legend':{
+                                # 'xanchor':"center",
+                                # 'yanchor':"top",
+                                'orientation': 'h',
+                                # 'y': -0.5, # play with it
+                                # 'x': 100   # play with it
+                            }
                         }
                     }
                 )
