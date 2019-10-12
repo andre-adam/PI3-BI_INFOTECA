@@ -51,9 +51,11 @@ for i in resultado:
     resultadoX.append(i[0])
     resultadoY.append(i[1])
 
-def consultarLivros(mes, area):
+def consultarLivros(mes, area, limit):
     resultadoLivroLabelsInside = []
     resultadoLivroValuesInside = []
+    if(limit == None):
+        limit = 10
     resultadoLivro = consulta('''
         select l.sk_dim_livro, l.nome_titulo, sum(qtd.total)
         from dw.ft_qtdlivrosemprestados qtd
@@ -65,16 +67,12 @@ def consultarLivros(mes, area):
         and (trim(a.siglaarea) = '%s' or '%s' = '')
         group by l.sk_dim_livro, l.nome_titulo
         order by 3 desc
-        limit 10
-    ''' % (mes, mes, area, area))
+        limit %d
+    ''' % (mes, mes, area, area, limit))
     for i in resultadoLivro:
         resultadoLivroValuesInside.append(i[2])
         resultadoLivroLabelsInside.append((i[1][:78] + '...') if len(i[1]) > 75 else i[1])
     return [resultadoLivroLabelsInside, resultadoLivroValuesInside]
-
-resultadoConsultaLivro = consultarLivros("","")
-resultadoLivroLabels = resultadoConsultaLivro[0]
-resultadoLivroValues = resultadoConsultaLivro[1]
 
 
 resultadoAreaTurma  = consulta('''
@@ -174,7 +172,13 @@ modalFiltro = html.Div(
                             placeholder="Selecione uma área"
                         ),  
                     width=9),
-
+                    dbc.Col(
+                        dbc.Button("Limpar",id="limparFiltro", color="info", className="mr-1"),
+                        style={
+                            'textAlign':'center',
+                            'padding-top': '10px',
+                        }
+                    )
                     ], row=True),
                     html.Div([], id='dropdown-mes-background', style={'display': 'none'})
                 ]
@@ -195,11 +199,11 @@ PLOTLY_LOGO = "/assets/icone.png"
 
 search_bar = dbc.Row(
     [
-        dbc.Col(dbc.Input(type="search", placeholder="Procurar")),
-        dbc.Col(
-            dbc.Button("Procurar", color="primary", className="ml-2"),
-            width="auto",
-        ),
+        # dbc.Col(dbc.Input(type="search", placeholder="Procurar")),
+        # dbc.Col(
+        #     dbc.Button("Procurar", color="primary", className="ml-2"),
+        #     width="auto",
+        # ),
     ],
     no_gutters=True,
     className="ml-auto flex-nowrap mt-3 mt-md-0",
@@ -218,7 +222,6 @@ navbar = dbc.Navbar(
                 align="center",
                 no_gutters=True,
             ),
-            href="https://plot.ly",
         ),
         dbc.NavbarToggler(id="navbar-toggler"),
         dbc.Collapse(search_bar, id="navbar-collapse", navbar=True),
@@ -227,6 +230,33 @@ navbar = dbc.Navbar(
     dark=True,
 )
 
+def criarGrafico3(mes, area, titulo, limitRows):
+    if(limitRows == None):
+        limitRows = 10
+    resultadoConsultaLivro = consultarLivros(mes, area, limitRows)
+    resultadoLivroLabels = resultadoConsultaLivro[0]
+    resultadoLivroValues = resultadoConsultaLivro[1]
+    return [dcc.Graph(
+            id='graph-qtd-livro',
+            figure={
+                'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
+                'layout':{
+                    'title': 'Quantidade de empréstimo por livro no ano de 2019 '+ str(titulo),
+                    'legend':{
+                        # 'xanchor':"center",
+                        # 'yanchor': "bottom",
+                        # 'orientation': 'h',
+                        # 'y': 1.8, # play with it
+                        # 'x': -1.8,   # play with it
+                        # 'margin':{'t':50,'l':150}
+                    },
+                    # 'height': '600',
+                    # 'width': '1000'
+                    # 'x': 0,
+                }
+            }
+        )
+    ]
 
 
 app.title = "BI InfoTeca" 
@@ -261,29 +291,25 @@ app.layout = html.Div(children=[
                 },
             ),
         ], md=7,id='col-graph-qtd-mes-por-area')
-    ]),
+    ], style={
+        'width': '100%',
+    }),
     dbc.Row([
+        dbc.Col(
+            criarGrafico3("", "", "",6)
+        , md=10, id="col-graph-qtd-livro"),
         dbc.Col([
-            dcc.Graph(
-                id='graph-qtd-livro',
-                figure={
-                    'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
-                    'layout':{
-                        'title': 'Quantidade de empréstimo por livro no ano de 2019',
-                        'legend':{
-                            'xanchor':"center",
-                            'yanchor':"top",
-                            'orientation': 'h',
-                            #'y':'-0.5', # play with it
-                            #'x':'100'   # play with it
-                        }
-                    }
-                },
-            )
-        ], md=12, id="col-graph-qtd-livro")
-    ])
-    ])
-    ,
+            dbc.FormGroup([
+                dbc.Label("Limite Resultado", html_for="limitGraph3", width=6),
+                dbc.Col(
+                    dbc.Input(id="limitGraph3", placeholder="Limite resultado", type="number", value="10"), width=6
+                )
+            ], row=True)
+        ],md=2, style={
+            'paddingTop': '100px',
+        })
+    ]),
+    ]),
 ])
 
 # add callback for toggling the collapse on small screens
@@ -311,10 +337,13 @@ def toggle_popover(n1, is_open):
 @app.callback([Output("dropdown-mes", "value"), Output("dropdown-mes-background", "children")],[
     Input("graph-qtd-mes", "clickData"),
     Input("graph-qtd-mes-por-area", "clickData"),
-    Input("dropdown-mes", "options")],
+    Input("dropdown-mes", "options"),
+    Input("limparFiltro", "n_clicks")],
     [State("dropdown-mes-background", "children")]    
 )
-def alterarDropdownMes(clickMes, clickMesArea, mesOptions, mesBG):
+def alterarDropdownMes(clickMes, clickMesArea, mesOptions, limparFiltro, mesBG):
+    if limparFiltro != None:
+        return None,None
     if clickMes != None:
         clickX = clickMes["points"][0]["x"].encode('utf-8', 'replace')
         return clickX, clickX
@@ -372,10 +401,13 @@ def criarGraphQtdMesPorArea(dropdown):
 @app.callback(
     Output("dropdown-area","value"),[
     Input("graph-qtd-mes-por-area", "clickData"),
-    Input("dropdown-mes", "options")
+    Input("dropdown-mes", "options"),
+    Input("limparFiltro", "n_clicks")
     ]
 )
-def alterarDropdownArea(click, mesOptions):
+def alterarDropdownArea(click, mesOptions, limparFiltro):
+    if(limparFiltro != None):
+        return None
     if(click != None):
         clickX = click["points"][0]["x"].encode('utf-8', 'replace')
         for mes in mesOptions:
@@ -389,10 +421,12 @@ def alterarDropdownArea(click, mesOptions):
     Output("col-graph-qtd-livro", "children"),[
     Input("dropdown-mes", "value"),
     Input("dropdown-area", "value"),
-    Input("dropdown-area", "options")
+    Input("dropdown-area", "options"),
+    Input("limitGraph3", "value")
     ]
 )
-def criarGraphQtdMesPorLivro(mes, area, areaOptions):
+def criarGraphQtdMesPorLivro(mes, area, areaOptions, limitRows):
+    limitRows = int(limitRows)
     if(mes != None):
         mes = mes.encode("utf-8", "replace")
     if(area != None):
@@ -403,89 +437,16 @@ def criarGraphQtdMesPorLivro(mes, area, areaOptions):
                 areaLabel = a["label"]
         areaLabel = areaLabel.encode("utf-8", "replace")
         if(mes == None):
-            resultadoConsultaLivro = consultarLivros("",area)
-            resultadoLivroLabels = resultadoConsultaLivro[0]
-            resultadoLivroValues = resultadoConsultaLivro[1]
-            return [dcc.Graph(
-                    id='graph-qtd-livro',
-                    figure={
-                        'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
-                        'layout':{
-                            'title': 'Quantidade de empréstimo por livro no ano de 2019 pela área de '+areaLabel,
-                            'legend':{
-                                'xanchor':"center",
-                                'yanchor':"top",
-                                'orientation': 'h',
-                                # 'y': -0.5, # play with it
-                                # 'x': 100   # play with it
-                            }
-                        }
-                    }
-                )
-            ]
+            return criarGrafico3("", area, "pela área de "+areaLabel, limitRows)   
         else:
-            resultadoConsultaLivro = consultarLivros(mes,area)
-            resultadoLivroLabels = resultadoConsultaLivro[0]
-            resultadoLivroValues = resultadoConsultaLivro[1]
-            return [dcc.Graph(
-                    id='graph-qtd-livro',
-                    figure={
-                        'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
-                        'layout':{
-                            'title': 'Quantidade de empréstimo por livro no ano de 2019 no mês de '+ mes +' pela área '+ areaLabel,
-                            'legend':{
-                                'xanchor':"center",
-                                'yanchor':"top",
-                                'orientation': 'h',
-                                # 'y': -0.5, # play with it
-                                # 'x': 100   # play with it
-                            }
-                        }
-                    }
-                )
-            ]
+            return criarGrafico3(mes, area, "no mês de "+ mes +" pela área "+ areaLabel, limitRows)            
     else:
         if(mes != None):
-            resultadoConsultaLivro = consultarLivros(mes,"")
-            resultadoLivroLabels = resultadoConsultaLivro[0]
-            resultadoLivroValues = resultadoConsultaLivro[1]
-            return [dcc.Graph(
-                    id='graph-qtd-livro',
-                    figure={
-                        'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
-                        'layout':{
-                            'title': 'Quantidade de empréstimo por livro no ano de 2019 no mês de '+mes,
-                            'legend':{
-                                'xanchor':"center",
-                                'yanchor':"top",
-                                'orientation': 'h',
-                                # 'y': -0.5, # play with it
-                                # 'x': 100   # play with it
-                            }
-                        }
-                    }
-                )
-            ]
+            return criarGrafico3(mes, "", "no mês de "+mes, limitRows)
+        elif(limitRows != None):
+            return criarGrafico3("", "", "", limitRows)
         else:
-            resultadoConsultaLivro = consultarLivros("","")
-            resultadoLivroLabels = resultadoConsultaLivro[0]
-            resultadoLivroValues = resultadoConsultaLivro[1]
-            return [dcc.Graph(
-                    id='graph-qtd-livro',
-                    figure={
-                        'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
-                        'layout':{
-                            'title': 'Quantidade de empréstimo por livro no ano de 2019',
-                            'legend':{
-                                # 'xanchor':"center",
-                                # 'yanchor':"top",
-                                'orientation': 'h',
-                                # 'y': -0.5, # play with it
-                                # 'x': 100   # play with it
-                            }
-                        }
-                    }
-                )
-            ]
+            return criarGrafico3("", "", "", limitRows)
+            
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=8080)
