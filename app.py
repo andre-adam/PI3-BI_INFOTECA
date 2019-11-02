@@ -56,8 +56,13 @@ datafinalFormat = datafinal[0][4]
 dataFim = {"dia": int(datafinal[0][3]), "mes": int(datafinal[0][2]), "ano": int(datafinal[0][1])}
 datafinal = "'"+datafinal[0][0]+"'"
 
-def getPeriodo():
-    return datainicialFormat+" a "+datafinalFormat
+def getPeriodo(dataini, datafim):
+    if dataini and datafim:
+        return dataini + " a " + datafim
+    elif dataini:
+        return dataini + " a " + datafinalFormat
+    else:
+        return datainicialFormat+" a "+datafinalFormat
 def consultarLivros(dataini, datafim, area, limit):
     resultadoLivroLabelsInside = []
     resultadoLivroValuesInside = []
@@ -116,7 +121,7 @@ modalFiltro = html.Div(
                 'zIndex': '1',
                 'fontSize': '30px',
                 'cursor':'pointer',
-                'marginTop': '60px',
+                # 'marginTop': '60px',
                 'transform': 'translateY(2em)'
             }
         ),
@@ -252,9 +257,9 @@ def criarGrafico1(dataini, datafim):
                     {'x': resultadoX, 'y': resultadoY, 'type': 'bar', 'name': 'Qtd'},
                 ],
                 'layout': {
-                    'title': 'Quantidade de empréstimo por mês entre ' + getPeriodo(),
+                    'title': 'Quantidade de empréstimo por mês',
                 }
-            }
+            },
         )
     ]
 
@@ -289,7 +294,7 @@ def criarGrafico2(tipo, dataini, datafim):
                 figure={
                     'data': resultadoAreas,
                     'layout': {
-                        'title': 'Quantidade de empréstimo por mês e curso entre '+ datainicialFormat + ' a ' + datafinalFormat,
+                        'title': 'Quantidade de empréstimo por mês e curso',
                     }
                 },
             ),
@@ -314,7 +319,7 @@ def criarGrafico3(dataini, datafim, area, titulo, limitRows):
             figure={
                 'data': [go.Pie(labels=resultadoLivroLabels, values=resultadoLivroValues)],
                 'layout':{
-                    'title': 'Quantidade de empréstimo por livro no ano de 2019 '+ str(titulo),
+                    'title': 'Quantidade de empréstimo por livro '+ str(titulo),
                     'legend':{
                         # 'xanchor':"center",
                         # 'yanchor': "bottom",
@@ -364,7 +369,7 @@ def criarGrafico4(dataini, datafim, area, limit):
                 figure={
                     'data': [go.Pie(labels=resultadoTurmaLabels, values=resultadoTurmaValues)],
                     'layout':{
-                        'title': 'Quantidade de empréstimo por turma do curso de ' + area + ' no período de ' + datainicialFormat + ' a '+ datafinalFormat,
+                        'title': 'Quantidade de empréstimo por turma do curso de ' + area,
                     },
                 },
                 style={
@@ -482,7 +487,7 @@ def criarGrafico6(curso, turma, dataini, datafim):
             figure={
                 'data': resultadoFinal,
                 'layout': {
-                    'title': 'Quantidade de empréstimo por dia da semana' + titulo + ' entre '+ datainicialFormat + ' a ' + datafinalFormat,
+                    'title': 'Quantidade de empréstimo por dia da semana' + titulo,
                     'xaxis':{
                         'title':'Dia da semana'
                     },
@@ -504,16 +509,27 @@ app.layout = html.Div(children=[
     modalFiltro,
     html.Div(children=[
     dbc.Row([
+        dbc.Col(
+            [html.Span(getPeriodo("",""),id="top-bar", style={"width": "100%"})
+            ], md=12
+        )
+    ],
+    style={
+        "position": "sticky",
+        "textAlign": "center",
+        "margin": "0",
+        "width": "100%",
+        "top": "0",
+        "zIndex": "1",
+        "backgroundColor":"#F8F8F8",
+        "boxShadow": "0px 2px 5px lightgrey"
+    }),
+    dbc.Row([
         dbc.Col(criarGrafico1("",""), md=5, id="col1"),
         dbc.Col(criarGrafico2(0, "", ""), md=7,id='col-graph-qtd-mes-por-area')
     ], style={
         'width': '100%',
     }),
-    dbc.Row([
-    dbc.Col(
-        criarGrafico6("", "", "","")
-    , md=11, id="col-graph-qtd-livro-dia")
-    ], style={"width": "100%"}),
     dbc.Row([
         dbc.Col([dcc.Graph(
                     id='graph-qtd-turma',
@@ -538,6 +554,11 @@ app.layout = html.Div(children=[
       dbc.Col(md=12, id="col-graph-qtd-turma-dia") ,
     ],style={"width":"100%"}),
     dbc.Row([
+    dbc.Col(
+        criarGrafico6("", "", "","")
+    , md=11, id="col-graph-qtd-livro-dia")
+    ], style={"width": "100%"}),
+    dbc.Row([
         dbc.Col(
             criarGrafico3("", "", "", "",10)
         , md=11, id="col-graph-qtd-livro"),
@@ -560,6 +581,24 @@ app.layout = html.Div(children=[
     ),
     ])
 ])
+
+@app.callback(
+    Output("top-bar", "children"),[
+    Input("my-date-picker", "start_date"),
+    Input("my-date-picker", "end_date")
+])
+def attPeriodo(dataini, datafim):
+    print(getPeriodo("", ""))
+    # print(start)
+    # if start:
+    #     dataI = 
+    if dataini:
+        dataI = dt.strptime(dataini,'%Y-%m-%d')
+        dataini = dataI.strftime('%d/%m/%Y')
+    if datafim:
+        dataF = dt.strptime(datafim,'%Y-%m-%d')
+        datafim = dataF.strftime('%d/%m/%Y')
+    return getPeriodo(dataini, datafim)
 
 @app.callback(
     Output("col-graph-qtd-livro-dia", "children"),[
@@ -594,12 +633,6 @@ def criarGraph5(click, turma, start_date, end_date):
     Input("my-date-picker", "end_date")
 ])
 def filtroData(dataini, datafim):
-    if dataini:
-        dataI = dt.strptime(dataini,'%Y-%m-%d')
-        datainicialFormat = dataI.strftime('%d/%m/%Y')
-    if datafim:
-        dataF = dt.strptime(datafim,'%Y-%m-%d')
-        datafinalFormat = dataF.strftime('%d/%m/%Y')
     return criarGrafico1(dataini, datafim)
 
 # add callback for toggling the collapse on small screens
@@ -676,8 +709,16 @@ def criarGraphQtdMesPorArea(start_date, end_date):
     return criarGrafico2(0, start_date, end_date)
 
 
-
-
+@app.callback(Output("dropdown-turma", "value"),[
+    Input("graph-qtd-turma", "clickData"),
+])
+def dropdownTurma(click):
+    if click:
+        turma = click["points"][0]["label"].encode("utf-8", "replace")
+        return turma
+    else:
+        return ""
+        
 @app.callback(
     Output("dropdown-turma", "options"),[
     Input("dropdown-area", "value")]
@@ -724,10 +765,10 @@ def criarGraphQtdMesPorLivro(dataini, datafim, area, areaOptions, limitRows):
         if(datafim == None):
             return criarGrafico3(dataini, datafim, area, "pelo curso de "+areaLabel, limitRows)   
         else:
-            return criarGrafico3(dataini, datafim, area, "no mês de " +" pelo curso "+ areaLabel, limitRows)            
+            return criarGrafico3(dataini, datafim, area, " pelo curso "+ areaLabel, limitRows)            
     else:
         if(datafim != None):
-            return criarGrafico3(dataini, datafim, "", "no mês de ", limitRows)
+            return criarGrafico3(dataini, datafim, "", "", limitRows)
         elif(limitRows != None):
             return criarGrafico3(dataini, datafim, "", "", limitRows)
         else:
