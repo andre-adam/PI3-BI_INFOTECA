@@ -18,7 +18,7 @@ def consulta(sql):
     try:
         connection = psycopg2.connect(user = "tad",
                                     password = "tad",
-                                    host = "biinfoteca.ddns.net",
+                                    host = "postgres",
                                     port = "5432",
                                     database = "bi_infoteca")
         cursor = connection.cursor()
@@ -718,7 +718,7 @@ def dropdownTurma(click):
         return turma
     else:
         return ""
-        
+
 @app.callback(
     Output("dropdown-turma", "options"),[
     Input("dropdown-area", "value")]
@@ -775,4 +775,4 @@ def criarGraphQtdMesPorLivro(dataini, datafim, area, areaOptions, limitRows):
             return criarGrafico3(dataini, datafim, "", "", limitRows)
             
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0',debug=True, port=8080)
+    app.run_server(host='0.0.0.0', port=8080)
