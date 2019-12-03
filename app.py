@@ -588,10 +588,6 @@ app.layout = html.Div(children=[
     Input("my-date-picker", "end_date")
 ])
 def attPeriodo(dataini, datafim):
-    print(getPeriodo("", ""))
-    # print(start)
-    # if start:
-    #     dataI = 
     if dataini:
         dataI = dt.strptime(dataini,'%Y-%m-%d')
         dataini = dataI.strftime('%d/%m/%Y')
@@ -775,4 +771,4 @@ def criarGraphQtdMesPorLivro(dataini, datafim, area, areaOptions, limitRows):
             return criarGrafico3(dataini, datafim, "", "", limitRows)
             
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port=8080)
+    app.run_server(host='0.0.0.0',port=8080)
