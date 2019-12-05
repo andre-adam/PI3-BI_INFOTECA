@@ -583,6 +583,14 @@ app.layout = html.Div(children=[
 ])
 
 @app.callback(
+    Output("my-date-picker", "end_date"),
+    [Input("limparFiltro", "n_clicks")]
+)
+def limparFiltroData(click):
+    if(click):
+        return None
+
+@app.callback(
     Output("top-bar", "children"),[
     Input("my-date-picker", "start_date"),
     Input("my-date-picker", "end_date")
@@ -707,8 +715,9 @@ def criarGraphQtdMesPorArea(start_date, end_date):
 
 @app.callback(Output("dropdown-turma", "value"),[
     Input("graph-qtd-turma", "clickData"),
+    Input("limparFiltro", "n_clicks")
 ])
-def dropdownTurma(click):
+def dropdownTurma(click, limpar):
     if click:
         turma = click["points"][0]["label"].encode("utf-8", "replace")
         return turma
@@ -729,11 +738,8 @@ def attDropdownTurma(curso):
     Output("dropdown-area","value"),[
     Input("graph-qtd-mes-por-area", "clickData"),
     Input("limparFiltro", "n_clicks")
-    ]
-)
-def alterarDropdownArea(click, limparFiltro):
-    if(limparFiltro != None):
-        return None
+])
+def alterarDropdownArea(click, limpar):
     if(click != None):
         clickX = click["points"][0]["text"].encode('utf-8', 'replace')
         return clickX
@@ -771,4 +777,4 @@ def criarGraphQtdMesPorLivro(dataini, datafim, area, areaOptions, limitRows):
             return criarGrafico3(dataini, datafim, "", "", limitRows)
             
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0',port=8080)
+    app.run_server(host='0.0.0.0', port=8080)
